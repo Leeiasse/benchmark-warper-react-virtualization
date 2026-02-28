@@ -14,12 +14,8 @@ cd seed && npm install
 npx tsx generate.ts --count 100000   # 100k
 npx tsx generate.ts --count 1000000  # 1M
 
-# 3. Start API
-cd ../api && npm install && npm run dev
-
-# 4. Start frontend
-cd ../frontend && npm install && npm run dev
-# Open http://localhost:5173
+# 3. Try tool
+# Go to http://localhost:3000
 ```
 
 ## Methodology
