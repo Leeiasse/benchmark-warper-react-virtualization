@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bench_password}
+      POSTGRES_DB: ${POSTGRES_DB:-bench_virtualization}
+    ports:
+      - "${POSTGRES_PORT:-5452}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./seed/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "max_connections=100"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bench} -d ${POSTGRES_DB:-bench_virtualization}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      # Inside Docker network, postgres listens on 5432 (container port)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-bench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bench_password}
+      POSTGRES_DB: ${POSTGRES_DB:-bench_virtualization}
+      API_PORT: ${API_PORT:-3100}
+      CORS_ORIGIN: http://localhost:${APP_PORT:-3000}
+    ports:
+      - "${API_PORT:-3100}:${API_PORT:-3100}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:80"
+    depends_on:
+      - api
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bench.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
